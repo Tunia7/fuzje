@@ -332,12 +332,12 @@ def downloading_pdb(link_alphaknot, pdb_name, family_id):
             os.makedirs(directory)
     except OSError:
         print('Error: Creating directory. ' + directory)
-    if not isfile(pdb_name):
+    if not isfile(f"/home/tunia/PycharmProjects/Staż/{directory}/{pdb_name}"):
         try:
-            wget.download(f"{link}_1.pdb", pdb_name)
+            wget.download(f"{link}_1.pdb", f"/home/tunia/PycharmProjects/Staż/{directory}/{pdb_name}")
         except:
             try:
-                wget.download(f"{link2}_1.pdb", pdb_name)
+                wget.download(f"{link2}_1.pdb", f"/home/tunia/PycharmProjects/Staż/{directory}/{pdb_name}")
             except:
                 pass
 
@@ -352,6 +352,7 @@ def downloading_pdb_fol_all_proteins_in_family(family_id):
                 downloading_pdb(link, f"{id}.pdb", family_id)
             except:
                 pass
+
 
 def main():
     list_of_families = ["PF01699-PF01699_PF01699-PF01699", "PF00588_PF00588", "PF03587_PF03587"]
