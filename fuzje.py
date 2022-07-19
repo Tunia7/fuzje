@@ -295,33 +295,6 @@ def domain_to_id_in_family(family_id):
                 writer.writerow(row)
 
 
-def domain_and_knot_core_correlation(domain_ranges, knot_cores):
-    if len(knot_cores) == 0 or domain_ranges == {}:
-        return ""
-    knot_cores = knot_cores + " \n"
-    knot_cores = knot_cores.split("; \n")
-    result = ""
-    for knot_type_line in knot_cores:
-        knot_name = knot_type_line[:knot_type_line.find(":")]
-        knot_ranges = knot_type_line[len(knot_name) + 2:]
-        knot_ranges = knot_ranges.split(";")
-        for range_knot in knot_ranges[:-1]:
-            start, end = re.findall(r"[\d\.]+", range_knot)
-            knot_range = range(int(start), int(end) + 1)
-            result += f"{knot_name}: "
-            domains = list(domain_ranges.values())[0]
-            for domain in domains:
-                domain_range = range(int(domain[0]), int(domain[1]) + 1)
-                covered = set(knot_range) & set(domain_range)
-                if len(covered) > 0:
-                    start_covered = min(covered)
-                    end_covered = max(covered)
-                    result += f"{start_covered} - {end_covered} (domena {domain[0]}, {domain[1]}), "
-            result = result[:-2] + ";\n"
-    print(result)
-    return result[:-1]
-
-
 def downloading_pdb(link_alphaknot, pdb_name, family_id):
     compute = link_alphaknot.find("compute")
     link = link_alphaknot[:compute] + "compute_static" + link_alphaknot[compute + len("compute"):-1] * 2
@@ -354,14 +327,72 @@ def downloading_pdb_fol_all_proteins_in_family(family_id):
                 pass
 
 
+def correlation_between_knot_and_domain(family_id):
+    with open(f"{family_id}_with_knot_cores_means.csv") as csv_file:
+        rows_original = list(csv.DictReader(csv_file))
+        with open(f"{family_id}_domain_and_knot_cover.csv", "w") as result_file:
+            header = ["Uniprot ID", "Domain", "Knot core in domain", "Is knotted?"]
+            writer = csv.writer(result_file)
+            writer.writerow(header)
+            for protein in rows_original:
+                is_knotted = "No"
+                rows = []
+                id = protein["Uniprot ID"]
+                only_one_knot = False
+                knot_core = protein["Alphafold knot cores - mean"][:-2]
+                if len(knot_core) == 0:
+                    knot_core = protein["Knot core - Alphafold"]
+                    only_one_knot = len(knot_core) != 0
+                if len(knot_core) != 0:
+                    is_knotted = knot_core
+                rows.append([id, "", "", is_knotted])
+                i = 1
+                knot_cores = knot_core.split("; \n")
+                domains = getting_domain_range_from_pfam(id)[1]
+                rows.append([""])
+                for domain_name, domain_ranges in domains.items():
+                    for domain_range in domain_ranges:
+                        rows[i].append(f"{domain_name}: {domain_range[0]} - {domain_range[1]}")
+                        result = ""
+                        if is_knotted != "No":
+                            for knot_type_line in knot_cores:
+                                knot_name = knot_type_line[:knot_type_line.find(":")]
+                                knot_ranges = knot_type_line[len(knot_name) + 2:]
+                                knot_ranges = knot_ranges.split(";")
+                                if only_one_knot:
+                                    knot_name = knot_type_line[:knot_type_line.find("_", knot_type_line.find("_") + 1)]
+                                    knot_ranges = [knot_type_line[len(knot_name) + 1:]]
+                                for range_knot in knot_ranges:
+                                    l = re.findall(r"[\d\.]+", range_knot)
+                                    assert len(re.findall(r"[\d\.]+",
+                                                          range_knot)) == 2, f"{l} {range_knot} {knot_ranges} {knot_cores} {id} {knot_name}"
+                                    start, end = re.findall(r"[\d\.]+", range_knot)
+                                    knot_range = range(int(start), int(end) + 1)
+                                    range_domain = range(int(domain_range[0]), int(domain_range[1]) + 1)
+                                    covered = set(knot_range) & set(range_domain)
+                                    if len(covered) > 0:
+                                        start_covered = min(covered)
+                                        end_covered = max(covered)
+                                        result += f"{knot_name} : {start_covered} - {end_covered}; "
+                                        if int(start) == start_covered and int(end) == end_covered:
+                                            result = result[:-2] + " (full knot in domain); "
+                        rows[i].append(result)
+                        if len(rows[i]) == 3:
+                            rows[i].append("")
+                            i += 1
+                            rows.append([""])
+                writer.writerows(rows)
+
+
 def main():
     list_of_families = ["PF01699-PF01699_PF01699-PF01699", "PF00588_PF00588", "PF03587_PF03587"]
     for family in list_of_families:
         # csv_with_knot_cores(family)
         # knot_cores_in_family_creates_csv(family)
         # domain_to_id_in_family(family)
-        downloading_pdb_fol_all_proteins_in_family(family)
+        # downloading_pdb_fol_all_proteins_in_family(family)
         # knot_cores_mean_in_family_creates_csv(family)
+        correlation_between_knot_and_domain(family)
 
 
 main()
